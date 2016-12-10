@@ -1,0 +1,84 @@
+#!/bin/sh
+
+# Manage test scripts for Ewoks.
+
+# Package contents:
+#	comment		brief description of the test
+#	keys		recorded keystrokes
+#	file.in		original contents of file
+#	screen		final contents of screen
+#	diff		diff between old and new file contents
+
+tmp=d$$
+
+get_comment () {
+    echo "Please type a brief description of the test:"
+    read comment
+    echo $comment >$tmp/comment
+}
+
+unpack () {
+    if [ ! -r $jar ]; then 
+        echo "runtest: can't read $jar" >&2; exit 1
+    fi    
+    mkdir $tmp
+    (cd $tmp; jar x) <$jar
+    cat $tmp/comment
+}
+
+pack () {
+    diff $tmp/file.in $tmp/file | tee $tmp/diff
+    mv $tmp/screen.out $tmp/screen
+    (cd $tmp; jar c comment keys file.in screen diff) >$jar
+}
+
+session () {
+    cp $tmp/file.in $tmp/file
+    (cd $tmp; env DRIBBLE=dribble scala -cp ../bin Editor file)
+    fmt $tmp/dribble >$tmp/keys
+}
+
+replay () {
+    cp $tmp/file.in $tmp/file
+    (cd $tmp; scala -cp ../bin Testbed file keys >screen.out)
+}
+
+expected () {
+    # patch has a bug: can't use -o when the patch file might be empty.
+    cp $tmp/file.in $tmp/expected
+    patch -s $tmp/expected <$tmp/diff
+}
+
+
+case $1 in
+    -c) # Create a test
+        if [ $# -ne 3 ]; then 
+            echo "Usage: runtest -c sample testfile" >&2; exit 2
+        fi
+        sample=$2; jar=$3
+        mkdir $tmp
+        cp $sample $tmp/file.in
+        session
+        cp $tmp/file $tmp/file.out
+        echo -n "Replaying the session ... "; replay
+        if cmp $tmp/file.out $tmp/file; then echo OK; else exit 1; fi
+        get_comment; pack;;
+    
+    -u) # Update a test
+        if [ $# -ne 2 ]; then 
+            echo "Usage: runtest -u testfile" >&2; exit 2; 
+        fi
+        jar=$2; unpack 
+        if [ -r $tmp/file ]; then cp $tmp/file $tmp/file.in; fi
+        replay; pack;;
+
+    *) # Run a test
+        if [ $# -ne 1 ]; then 
+            echo "Usage: runtest testfile" >&2; exit 2
+        fi
+        jar=$1; unpack; replay; expected
+        diff $tmp/screen $tmp/screen.out &&
+        diff $tmp/expected $tmp/file;;
+esac
+
+rm -rf $tmp
