@@ -104,7 +104,7 @@ class Editor extends Undoable[Editor.Action] {
                 if (p == ed.length) { beep(); return null }
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
-            case   _ =>
+            case _ =>
                 throw new Error("Bad direction")
         }
 
