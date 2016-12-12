@@ -128,7 +128,7 @@ class EdBuffer {
         // if deleting a character on the
         // LEFT of the mark, decrement the mark by one,
         // for which the strict inequality is necessary
-		if (mark > pos) mark -= 1
+        if (mark > pos) mark -= 1
         setModified()
     }
 
@@ -146,7 +146,7 @@ class EdBuffer {
         // if inserting a character on the
         // LEFT of the mark, increment the mark by one,
         // for which the >= relationship is necessary
-		if (mark >= pos) mark += 1
+        if (mark >= pos) mark += 1
         setModified()
     }
     

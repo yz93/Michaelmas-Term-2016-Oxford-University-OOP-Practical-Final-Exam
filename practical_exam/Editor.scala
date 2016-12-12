@@ -38,12 +38,12 @@ class Editor extends Undoable[Editor.Action] {
 
     /** Place the mark where the point is currently located */
     def markCommand(){
-    	ed.mark = ed.point
+        ed.mark = ed.point
     }
 
     /** Swap the point and mark */
     def swapCommand(){
-    	val p = ed.point
+        val p = ed.point
         ed.point = ed.mark
         ed.mark = p
     }
