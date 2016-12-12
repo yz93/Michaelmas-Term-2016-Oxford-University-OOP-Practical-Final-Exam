@@ -17,6 +17,9 @@ class EdBuffer {
     /** Current editing position. */
     private var _point = 0
 
+    /** Current mark position. */
+    private var _mark = 0
+
     // State components that are not restored on undo
 
     /** File name for saving the text. */
@@ -75,10 +78,16 @@ class EdBuffer {
 
     def point = _point
 
+    def mark = _mark
+
     def point_=(point: Int) {
         if (damage == EdBuffer.REWRITE_LINE && getRow(point) != damage_line)
             damage = EdBuffer.REWRITE
         _point = point
+    }
+
+    def mark_=(mark: Int) {
+        _mark = mark
     }
 
     def filename = _filename
@@ -116,6 +125,10 @@ class EdBuffer {
         val ch = text.charAt(pos)
         noteDamage(ch == '\n' || getRow(pos) != getRow(point))
         text.deleteChar(pos)
+        // if deleting a character on the
+        // LEFT of the mark, decrement the mark by one,
+        // for which the strict inequality is necessary
+		if (mark > pos) mark -= 1
         setModified()
     }
 
@@ -130,6 +143,10 @@ class EdBuffer {
     def insert(pos: Int, ch: Char) {
         noteDamage(ch == '\n' || getRow(pos) != getRow(point))
         text.insert(pos, ch)
+        // if inserting a character on the
+        // LEFT of the mark, increment the mark by one,
+        // for which the >= relationship is necessary
+		if (mark >= pos) mark += 1
         setModified()
     }
     
@@ -192,12 +209,13 @@ class EdBuffer {
     def getState() = new Memento()
     
     /** An immutable record of the editor state at some time.  The state that
-     * is recorded consists of just the current point. */
+     * is recorded consists of the current point and mark. */
     class Memento {
         private val pt = point
+        private val mk = mark
         
         /** Restore the state when the memento was created */
-        def restore() { point = pt }
+        def restore() { point = pt; mark = mk }
     }
 
     /** Change that records an insertion */

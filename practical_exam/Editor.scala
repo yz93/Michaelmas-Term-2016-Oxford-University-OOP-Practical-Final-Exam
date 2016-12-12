@@ -36,6 +36,18 @@ class Editor extends Undoable[Editor.Action] {
     /** Load a file into the buffer */
     def loadFile(fname: String) { ed.loadFile(fname) }
 
+    /** Place the mark where the point is currently located */
+    def markCommand(){
+    	ed.mark = ed.point
+    }
+
+    /** Swap the point and mark */
+    def swapCommand(){
+    	val p = ed.point
+        ed.point = ed.mark
+        ed.mark = p
+    }
+
     /** Command: Move the cursor in the specified direction */
     def moveCommand(dir: Int) {
         var p = ed.point
@@ -78,6 +90,7 @@ class Editor extends Undoable[Editor.Action] {
     /** Command: Delete in a specified direction */
     def deleteCommand(dir: Int): Change = {
         var p = ed.point
+        var m = ed.mark
         var ch: Char = 0
 
         dir match {
@@ -91,7 +104,7 @@ class Editor extends Undoable[Editor.Action] {
                 if (p == ed.length) { beep(); return null }
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
-            case _ =>
+            case   _ =>
                 throw new Error("Bad direction")
         }
 
@@ -240,6 +253,8 @@ object Editor {
         Display.ctrl('F') -> (_.moveCommand(RIGHT)),
         Display.ctrl('G') -> (_.beep),
         Display.ctrl('L') -> (_.chooseOrigin),
+        Display.ctrl('M') -> (_.markCommand),
+        Display.ctrl('O') -> (_.swapCommand),
         Display.ctrl('N') -> (_.moveCommand(DOWN)),
         Display.ctrl('P') -> (_.moveCommand(UP)),
         Display.ctrl('Q') -> (_.quit),
