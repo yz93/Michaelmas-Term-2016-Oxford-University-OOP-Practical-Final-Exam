@@ -136,6 +136,16 @@ class EdBuffer {
     def deleteRange(pos: Int, len: Int) {
         noteDamage(true)
         text.deleteRange(pos, len)
+        if (mark > pos){
+          // If the character that mark currently points
+          // to is deleted, then set mark to the starting 
+          // position of the deleting range
+          if (pos+len-1 >= mark) mark = pos
+          // else, simply decrement mark by length of
+          // range because those many characters to the 
+          // LEFT of the mark have been deleted
+          else mark -= len
+        }
         setModified()
     }
     
@@ -143,9 +153,9 @@ class EdBuffer {
     def insert(pos: Int, ch: Char) {
         noteDamage(ch == '\n' || getRow(pos) != getRow(point))
         text.insert(pos, ch)
-        // if inserting a character on the
-        // LEFT of the mark, increment the mark by one,
-        // for which the >= relationship is necessary
+        // if inserting a single character on the
+        // LEFT of the mark, increment the mark by one.
+        // Note that the >= condition is necessary
         if (mark >= pos) mark += 1
         setModified()
     }
@@ -154,6 +164,9 @@ class EdBuffer {
     def insert(pos: Int, s: String) {
         noteDamage(true)
         text.insert(pos, s)
+        // follows the same logic as in the case of 
+        // single character insertion
+        if (mark >= pos) mark += s.length
         setModified()
     }
     
@@ -161,6 +174,9 @@ class EdBuffer {
     def insert(pos: Int, s: Text.Immutable) {
         noteDamage(true)
         text.insert(pos, s)
+        // follows the same logic as in the case of 
+        // single character insertion
+        if (mark >= pos) mark += s.length
         setModified()
     }
     
@@ -168,6 +184,9 @@ class EdBuffer {
     def insert(pos: Int, t: Text) {
         noteDamage(true)
         text.insert(pos, t)
+        // follows the same logic as in the case of 
+        // single character insertion
+        if (mark >= pos) mark += t.length
         setModified()
     }
 
