@@ -19,24 +19,37 @@ class EdBuffer {
 
     /** Current mark position. */
     private var _mark = 0
+    
+    /** Current buffer editing state. */
+    private var _buf_state: Long = 0
+    
+    /** Indicates whether the current buffer
+     *  contents have been saved before the
+     *  most recent action. */
+    private var previous_saving_state: Boolean = false
 
     // State components that are not restored on undo
 
     /** File name for saving the text. */
     private var _filename = ""
 
-    /** Dirty flag */
-    private var modified = false
-
+    /** Current file editing state. */
+    private var _file_state: Long = 0
 
     /** Register a display */
     def register(display: Display) { this.display = display }
 
     /** Mark the buffer as modified */
-    private def setModified() { modified = true }
+    private def setModified() {
+        previous_saving_state = _buf_state == _file_state
+        if (_buf_state >= _file_state)
+            _buf_state += 1
+        else
+            _buf_state = _file_state + 1
+    }
 
     /** Test whether the text is modified */
-    def isModified = modified
+    def isModified = _buf_state != _file_state
     
 
     // Display update
@@ -204,7 +217,15 @@ class EdBuffer {
                 MiniBuffer.message(display, "Couldn't read file '%s'", name)
         }
         
-        modified = false
+        // Equivalent to the original "modified = false"
+        // The only time these two lines actually matter is
+        // when Editor.replaceFileCommand is called. Since
+        // Undoable.reset clears the undo stack while a new
+        // file is being loaded, there is no previous buffer 
+        // or file states we need to keep track of. So it is the best
+        // to start the timestamp from 0 again.
+        _buf_state = 0
+        _file_state = 0
         noteDamage(true)
     }
     
@@ -216,7 +237,8 @@ class EdBuffer {
             val out = new FileWriter(name)
             text.writeFile(out)
             out.close()
-            modified = false
+            //Equivalent to the original "modified = false"
+            _file_state = _buf_state
         } catch {
             case e: IOException =>
                 MiniBuffer.message(display, "Couldn't write '%s'", name)
@@ -232,9 +254,10 @@ class EdBuffer {
     class Memento {
         private val pt = point
         private val mk = mark
+        private val st = _buf_state
         
         /** Restore the state when the memento was created */
-        def restore() { point = pt; mark = mk }
+        def restore() { point = pt; mark = mk; _buf_state = st }
     }
 
     /** Change that records an insertion */
@@ -255,7 +278,8 @@ class EdBuffer {
         override def amalgamate(change: Change) = {
             change match {
                 case other: AmalgInsertion =>
-                    if (text.charAt(text.length-1) == '\n'
+                    if (previous_saving_state 
+                        || text.charAt(text.length-1) == '\n'
                             || other.pos != this.pos + this.text.length) 
                         false
                     else {
