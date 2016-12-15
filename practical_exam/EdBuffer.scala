@@ -23,7 +23,7 @@ class EdBuffer {
     /** Current buffer editing state. */
     private var _buf_state: Long = 0
     
-    /** Indicates whether the current buffer
+    /** Indicates whether the buffer
      *  contents have been saved before the
      *  most recent action. */
     private var previous_saving_state: Boolean = false
