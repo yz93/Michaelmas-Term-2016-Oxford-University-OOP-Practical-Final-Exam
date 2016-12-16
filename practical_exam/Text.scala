@@ -212,6 +212,8 @@ object Text {
         def subSequence(start: Int, end: Int) =
             contents.subSequence(start, end)
 
+        def toUpperCase(): String = contents.toUpperCase
+
         override def equals(that: Any) = {
             that match {
                 case other: Immutable => contents.equals(other.contents)

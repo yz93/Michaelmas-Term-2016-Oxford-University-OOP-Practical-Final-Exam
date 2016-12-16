@@ -111,6 +111,21 @@ class Editor extends Undoable[Editor.Action] {
         new ed.Deletion(p, ch)
     }
     
+    /** Command: Convert a word to uppercase*/
+    def toUpperCommand(): Change = {
+        val p = ed.point
+        if (p == ed.length) { beep(); return null }
+        if (!ed.charAt(p).isLetterOrDigit) { beep(); return null }
+        val posAndLen = ed.getWordPosAndLen
+        val pos = posAndLen._1
+        val range = posAndLen._2
+        val txt = ed.getRange(pos, range)
+        val txt_upper = txt.toUpperCase
+        ed.deleteRange(pos, range)
+        ed.insert(pos, txt_upper)
+        new ed.UppercaseConversion(pos, txt, txt_upper)
+    }
+    
     /** Command: Save the file */
     def saveFileCommand() {
         val name = 
@@ -259,6 +274,7 @@ object Editor {
         Display.ctrl('P') -> (_.moveCommand(UP)),
         Display.ctrl('Q') -> (_.quit),
         Display.ctrl('R') -> (_.replaceFileCommand),
+        Display.ctrl('U') -> (_.toUpperCommand),
         Display.ctrl('W') -> (_.saveFileCommand),
         Display.ctrl('Y') -> (_.redo),
         Display.ctrl('Z') -> (_.undo))

@@ -106,6 +106,24 @@ class EdBuffer {
     def filename = _filename
 
     private def filename_=(filename: String) { _filename = filename }
+    
+    def getWordPosAndLen: Tuple2[Int, Int] = {
+        var p_1 = _point
+        var ch = text.charAt(_point)
+        while(p_1 > 0 && ch.isLetterOrDigit){
+            p_1 -= 1  
+            ch = text.charAt(p_1)
+        }
+        if (p_1 > 0 || !ch.isLetterOrDigit) p_1 += 1 
+        var p_2 = _point
+        ch = text.charAt(_point)
+        while(p_2 < (text.length-1) && ch.isLetterOrDigit){
+          p_2 += 1  
+          ch = text.charAt(p_2)
+        }
+        if (p_2 < (text.length-1) || !ch.isLetterOrDigit) p_2 -= 1
+        (p_1, p_2-p_1+1)
+    }
 
 
     // Delegate methods for text
@@ -296,6 +314,24 @@ class EdBuffer {
     class Deletion(pos: Int, deleted: Char) extends Change {
         def undo() { insert(pos, deleted) }
         def redo() { deleteChar(pos) }
+    }
+    
+    /** Change that records a word's conversion to uppercase*/
+    class UppercaseConversion(val pos: Int, txt: Text.Immutable, txt_upper: String) extends Change{
+        def undo() {
+            deleteRange(pos, txt_upper.length)
+            insert(pos, txt)
+        }
+        def redo() {
+            deleteRange(pos, txt.length)
+            insert(pos, txt_upper)
+        }
+        override def amalgamate(change: Change) = {
+            change match {
+                case other: UppercaseConversion => other.pos == this.pos
+                case _ => false
+            }
+        }
     }
 
     def wrapChange(before: Memento, change: Change, after: Memento) = {
