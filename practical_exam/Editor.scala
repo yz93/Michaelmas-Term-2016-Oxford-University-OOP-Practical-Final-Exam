@@ -110,7 +110,7 @@ class Editor extends Undoable[Editor.Action] {
 
         new ed.Deletion(p, ch)
     }
-    
+
     /** Command: Convert a word to uppercase*/
     def toUpperCommand(): Change = {
         val p = ed.point
@@ -127,7 +127,7 @@ class Editor extends Undoable[Editor.Action] {
         ed.point = p
         new ed.UppercaseConversion(pos, txt, txt_upper)
     }
-    
+
     /** Command: Save the file */
     def saveFileCommand() {
         val name = 

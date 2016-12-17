@@ -106,7 +106,7 @@ class EdBuffer {
     def filename = _filename
 
     private def filename_=(filename: String) { _filename = filename }
-    
+
     def getWordPosAndLen: Tuple2[Int, Int] = {
         var p_1 = _point
         var ch = text.charAt(_point)
@@ -118,8 +118,8 @@ class EdBuffer {
         var p_2 = _point
         ch = text.charAt(_point)
         while(p_2 < (text.length-1) && ch.isLetterOrDigit){
-          p_2 += 1  
-          ch = text.charAt(p_2)
+            p_2 += 1
+            ch = text.charAt(p_2)
         }
         if (p_2 < (text.length-1) || !ch.isLetterOrDigit) p_2 -= 1
         (p_1, p_2-p_1+1)
@@ -315,7 +315,7 @@ class EdBuffer {
         def undo() { insert(pos, deleted) }
         def redo() { deleteChar(pos) }
     }
-    
+
     /** Change that records a word's conversion to uppercase*/
     class UppercaseConversion(val pos: Int, txt: Text.Immutable, txt_upper: String) extends Change{
         def undo() {
