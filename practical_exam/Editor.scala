@@ -122,7 +122,9 @@ class Editor extends Undoable[Editor.Action] {
         val txt = ed.getRange(pos, range)
         val txt_upper = txt.toUpperCase
         ed.deleteRange(pos, range)
+        ed.point = posAndLen._1
         ed.insert(pos, txt_upper)
+        ed.point = p
         new ed.UppercaseConversion(pos, txt, txt_upper)
     }
     

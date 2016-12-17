@@ -111,7 +111,7 @@ class EdBuffer {
         var p_1 = _point
         var ch = text.charAt(_point)
         while(p_1 > 0 && ch.isLetterOrDigit){
-            p_1 -= 1  
+            p_1 -= 1
             ch = text.charAt(p_1)
         }
         if (p_1 > 0 || !ch.isLetterOrDigit) p_1 += 1 
@@ -320,11 +320,17 @@ class EdBuffer {
     class UppercaseConversion(val pos: Int, txt: Text.Immutable, txt_upper: String) extends Change{
         def undo() {
             deleteRange(pos, txt_upper.length)
+            val temp = _point
+            _point = pos
             insert(pos, txt)
+            _point = temp
         }
         def redo() {
             deleteRange(pos, txt.length)
+            val temp = _point
+            _point = pos
             insert(pos, txt_upper)
+            _point = temp
         }
         override def amalgamate(change: Change) = {
             change match {
