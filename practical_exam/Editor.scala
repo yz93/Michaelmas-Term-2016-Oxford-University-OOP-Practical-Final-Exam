@@ -82,7 +82,11 @@ class Editor extends Undoable[Editor.Action] {
     /** Command: Insert a character */
     def insertCommand(ch: Char): Change = {
         val p = ed.point
+        if (ed.intersectAny(p, p, true, true)._2) { beep(); return null }
         ed.insert(p, ch)
+        // update the intervals which represent the positions of 
+        // encrypted immutable blocks
+        ed.update_intervals(p, true)
         ed.point = p+1
         new ed.AmalgInsertion(p, ch)
     }
@@ -97,11 +101,19 @@ class Editor extends Undoable[Editor.Action] {
             case Editor.LEFT =>
                 if (p == 0) { beep(); return null }
                 p -= 1
+                if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
+                // update the intervals which represent the positions of 
+                // encrypted immutable blocks
+                ed.update_intervals(p, false)
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
                 ed.point = p
             case Editor.RIGHT =>
                 if (p == ed.length) { beep(); return null }
+                if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
+                // update the intervals which represent the positions of 
+                // encrypted immutable blocks
+                ed.update_intervals(p, false)
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
             case _ =>
@@ -119,6 +131,7 @@ class Editor extends Undoable[Editor.Action] {
         val posAndLen = ed.getWordPosAndLen
         val pos = posAndLen._1
         val range = posAndLen._2
+        if (ed.intersectAny(pos, pos+range-1, true, false)._2) { beep(); return null }
         val txt = ed.getRange(pos, range)
         val txt_upper = txt.toUpperCase
         ed.deleteRange(pos, range)
@@ -126,6 +139,27 @@ class Editor extends Undoable[Editor.Action] {
         ed.insert(pos, txt_upper)
         ed.point = p
         new ed.UppercaseConversion(pos, txt, txt_upper)
+    }
+
+    def ROT13Command(): Change = {
+        val p = ed.point
+        val m = ed.mark
+        val normal_position = m >= p
+        val start = if (normal_position) p else m
+        val end = if (normal_position) m else p
+        val interc_tup = ed.intersectAny(start, end, normal_position, false)
+        val interc_start = interc_tup._1._1
+        val interc_end = interc_tup._1._2
+        val needs_decipher = (interc_start != -1) && (interc_end != -1)
+        if (needs_decipher) {
+            ed.decipher(interc_start, interc_end)
+            new ed.ROT13Conversion(interc_start, interc_end, false)
+        }
+        else if (interc_tup._2) { beep(); return null }
+        else {
+            ed.cipher(start, end)
+            new ed.ROT13Conversion(start, end, true)
+        }
     }
 
     /** Command: Save the file */
@@ -269,6 +303,7 @@ object Editor {
         Display.ctrl('E') -> (_.moveCommand(END)),
         Display.ctrl('F') -> (_.moveCommand(RIGHT)),
         Display.ctrl('G') -> (_.beep),
+        Display.ctrl('H') -> (_.ROT13Command), 
         Display.ctrl('L') -> (_.chooseOrigin),
         Display.ctrl('M') -> (_.markCommand),
         Display.ctrl('O') -> (_.swapCommand),

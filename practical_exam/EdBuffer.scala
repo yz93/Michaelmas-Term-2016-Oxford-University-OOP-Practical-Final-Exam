@@ -12,6 +12,9 @@ class EdBuffer {
     /** The display. */
     private var display: Display = null
     
+    /** The binary search tree that records the interval changes*/
+    private var intervalTree: IntervalBST = new IntervalBST(null)
+    
     // State components that are preserver by undo and redo
 
     /** Current editing position. */
@@ -262,7 +265,44 @@ class EdBuffer {
                 MiniBuffer.message(display, "Couldn't write '%s'", name)
         }
     }
+    
+    private def doROT13(first: Int, last: Int) {
+        val len = last - first + 1
+        var sb: StringBuilder = new StringBuilder(len)
+        for (i <- first to last) {
+            var ch = text.charAt(i);
+            if       (ch >= 'a' && ch <= 'm') sb += (ch.toInt + 13).toChar
+            else if  (ch >= 'A' && ch <= 'M') sb += (ch.toInt + 13).toChar
+            else if  (ch >= 'n' && ch <= 'z') sb += (ch.toInt - 13).toChar
+            else if  (ch >= 'N' && ch <= 'Z') sb += (ch.toInt - 13).toChar
+            else sb += ch
+        }
+        var temp = -999
+        if (first <= mark && mark <= first+len-1 ) temp = first + len - mark
+        insert(first, sb.mkString)
+        deleteRange(first+len, len)
+        if (temp != -999)
+            mark -= temp
+    }
+    
+    def cipher(first: Int, last: Int) {
+        doROT13(first, last)
+        intervalTree.insert(first, last)
+    }
 
+    def decipher(first: Int, last: Int) {
+        doROT13(first, last)
+        intervalTree.delete(first, last)
+    }
+    
+    def intersectAny(key: Int, value: Int, point: Boolean, for_insert_test: Boolean)
+        : Tuple2[Tuple2[Int, Int], Boolean] = {
+        intervalTree.intersectAny(key, value, point, for_insert_test)
+    }
+    
+    def update_intervals(pos: Int, insertion: Boolean){
+        intervalTree.update_intervals(pos, insertion)
+    }
 
     /** Make a Memento that records the current editing state */
     def getState() = new Memento()
@@ -338,6 +378,11 @@ class EdBuffer {
                 case _ => false
             }
         }
+    }
+    
+    class ROT13Conversion(start: Int, end: Int, ciphered: Boolean) extends Change{
+        def undo(){ if (ciphered) decipher(start, end) else cipher(start, end) }
+        def redo(){ if (ciphered) cipher(start, end) else decipher(start, end) }
     }
 
     def wrapChange(before: Memento, change: Change, after: Memento) = {

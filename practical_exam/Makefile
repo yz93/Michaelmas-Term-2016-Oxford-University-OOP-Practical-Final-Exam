@@ -2,7 +2,7 @@ all: .compiled
 
 SOURCE = Undoable.scala Text.scala PlaneText.scala Terminal.scala \
 	Keymap.scala Display.scala EdBuffer.scala MiniBuffer.scala \
-	Editor.scala Testbed.scala
+	Editor.scala Testbed.scala IntervalBST.scala
 
 .compiled: $(SOURCE)
 	@mkdir -p bin
