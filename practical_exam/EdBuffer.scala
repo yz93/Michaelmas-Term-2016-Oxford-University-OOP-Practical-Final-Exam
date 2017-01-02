@@ -267,6 +267,7 @@ class EdBuffer {
     }
     
     private def doROT13(first: Int, last: Int) {
+        val m = mark
         val len = last - first + 1
         var sb: StringBuilder = new StringBuilder(len)
         for (i <- first to last) {
@@ -277,12 +278,9 @@ class EdBuffer {
             else if  (ch >= 'N' && ch <= 'Z') sb += (ch.toInt - 13).toChar
             else sb += ch
         }
-        var temp = -999
-        if (first <= mark && mark <= first+len-1 ) temp = first + len - mark
         insert(first, sb.mkString)
         deleteRange(first+len, len)
-        if (temp != -999)
-            mark -= temp
+        mark = m
     }
     
     def cipher(first: Int, last: Int) {
@@ -300,8 +298,8 @@ class EdBuffer {
         intervalTree.intersectAny(key, value, point, for_insert_test)
     }
     
-    def update_intervals(pos: Int, insertion: Boolean){
-        intervalTree.update_intervals(pos, insertion)
+    def update_intervals(pos: Int, isInsertion: Boolean){
+        intervalTree.update_intervals(pos, isInsertion)
     }
 
     /** Make a Memento that records the current editing state */

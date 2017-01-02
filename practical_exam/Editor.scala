@@ -82,6 +82,8 @@ class Editor extends Undoable[Editor.Action] {
     /** Command: Insert a character */
     def insertCommand(ch: Char): Change = {
         val p = ed.point
+        // check if the insertion position intersects with any
+        // encrypted block. 
         if (ed.intersectAny(p, p, true, true)._2) { beep(); return null }
         ed.insert(p, ch)
         // update the intervals which represent the positions of 
@@ -101,6 +103,8 @@ class Editor extends Undoable[Editor.Action] {
             case Editor.LEFT =>
                 if (p == 0) { beep(); return null }
                 p -= 1
+                // check if the insertion position intersects with any
+                // encrypted block.
                 if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
                 // update the intervals which represent the positions of 
                 // encrypted immutable blocks
@@ -110,6 +114,8 @@ class Editor extends Undoable[Editor.Action] {
                 ed.point = p
             case Editor.RIGHT =>
                 if (p == ed.length) { beep(); return null }
+                // check if the insertion position intersects with any
+                // encrypted block.
                 if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
                 // update the intervals which represent the positions of 
                 // encrypted immutable blocks
@@ -126,36 +132,72 @@ class Editor extends Undoable[Editor.Action] {
     /** Command: Convert a word to uppercase*/
     def toUpperCommand(): Change = {
         val p = ed.point
+        val m = ed.mark
         if (p == ed.length) { beep(); return null }
+        // if current character is not a letter or digit, then do nothing
         if (!ed.charAt(p).isLetterOrDigit) { beep(); return null }
+        // get the starting position and length of the current word
+        // to prepare for the transformation
         val posAndLen = ed.getWordPosAndLen
         val pos = posAndLen._1
         val range = posAndLen._2
+        // check if the word intersects with any
+        // encrypted block
         if (ed.intersectAny(pos, pos+range-1, true, false)._2) { beep(); return null }
+        // get the original word
         val txt = ed.getRange(pos, range)
+        // transform
         val txt_upper = txt.toUpperCase
+        // first delete the original word from the text
         ed.deleteRange(pos, range)
+        // because the original cursor position may be after the
+        // the starting position of the deletion, if we are deleting
+        // the last word of the text, at this point
+        // the cursor could be hanging in mid-air beyond the end of the text,
+        // causing an assertion fail when updating PlaneText. Therefore,
+        // temporarily reassign the point a safe position. Alternatively,
+        // I could have done insertion before the deletion to solve this problem
         ed.point = posAndLen._1
+        // Now do insertion after the deletion
         ed.insert(pos, txt_upper)
+        // return the cursor to its orignal position
         ed.point = p
+        ed.mark = m 
         new ed.UppercaseConversion(pos, txt, txt_upper)
     }
 
     def ROT13Command(): Change = {
         val p = ed.point
         val m = ed.mark
+        // A normal position is where the mark >= the point; an unusual one is
+        // the opposite. Although either position is valid for encryption,
+        // distinguishing the two positions is important for
+        // selecting the correct value to check when determining if the cursor is
+        // within any encrypted block.
         val normal_position = m >= p
         val start = if (normal_position) p else m
         val end = if (normal_position) m else p
+        // interc_tup is a 2-tuple of type ((Int, Int), Boolean)
+        // If the cursor lies within an encrypted block, then (Int, Int) is the 
+        // starting and end position of that block, otherwise it is (-1, -1).
+        // The second element indicates whether (start, end) intersects with any
+        // encrypted block.
         val interc_tup = ed.intersectAny(start, end, normal_position, false)
         val interc_start = interc_tup._1._1
         val interc_end = interc_tup._1._2
         val needs_decipher = (interc_start != -1) && (interc_end != -1)
+        // If (interc_start, interc_end) is not (-1, -1), then the cursor is 
+        // within an encrypted block, therefore decipher.
         if (needs_decipher) {
             ed.decipher(interc_start, interc_end)
             new ed.ROT13Conversion(interc_start, interc_end, false)
         }
+        // If the second element is true, then there is an
+        // overlap of intervals, and we've already excluded the cursor being in
+        // the encrypted block, thus do nothing as specified in my report.
         else if (interc_tup._2) { beep(); return null }
+        // If no cursor in the encrypted block and no intersection, then
+        // happy to encrypt the text between the point and the mark.
         else {
             ed.cipher(start, end)
             new ed.ROT13Conversion(start, end, true)
