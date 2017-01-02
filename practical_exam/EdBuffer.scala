@@ -14,7 +14,7 @@ class EdBuffer {
     
     /** The binary search tree that records the interval changes*/
     private var intervalTree: IntervalBST = new IntervalBST(null)
-    
+
     // State components that are preserver by undo and redo
 
     /** Current editing position. */
@@ -22,10 +22,10 @@ class EdBuffer {
 
     /** Current mark position. */
     private var _mark = 0
-    
+
     /** Current buffer editing state. */
     private var _buf_state: Long = 0
-    
+
     /** Indicates whether the buffer
      *  contents have been saved before the
      *  most recent action. */
@@ -110,20 +110,36 @@ class EdBuffer {
 
     private def filename_=(filename: String) { _filename = filename }
 
+    /** Returns a 2-tuple of (Int, Int) with the first element being
+     *  the starting position of the word and the second element being 
+     *  the length of the word.
+     *  Precondition: The character at the point is a letter or digit, 
+     *  which is checked by Editor.toUpperCommand() before invocation 
+     *  of this method.
+     */
     def getWordPosAndLen: Tuple2[Int, Int] = {
+        // search backward for the start of the word
         var p_1 = _point
         var ch = text.charAt(_point)
         while(p_1 > 0 && ch.isLetterOrDigit){
             p_1 -= 1
             ch = text.charAt(p_1)
         }
-        if (p_1 > 0 || !ch.isLetterOrDigit) p_1 += 1 
+        // make sure p_1 points to the first character of the word
+        // if p_1 == 0 and ch is a letter or digit, do NOT increment
+        // otherwise, increment by 1, including if p_1 ==0 and ch
+        // is not a letter or digit
+        if (p_1 > 0 || !ch.isLetterOrDigit) p_1 += 1
+        // search forward for the end of the word
         var p_2 = _point
         ch = text.charAt(_point)
         while(p_2 < (text.length-1) && ch.isLetterOrDigit){
             p_2 += 1
             ch = text.charAt(p_2)
         }
+        // make sure p_2 points to the last character of the word
+        // special case is when p_2 is the last character of the text
+        // similar in nature to the case for p_1
         if (p_2 < (text.length-1) || !ch.isLetterOrDigit) p_2 -= 1
         (p_1, p_2-p_1+1)
     }
@@ -163,23 +179,30 @@ class EdBuffer {
         // LEFT of the mark, decrement the mark by one,
         // for which the strict inequality is necessary
         if (mark > pos) mark -= 1
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, -1)
         setModified()
     }
 
-    /** Delete a range of characters. */
+    /** Delete a range of characters. 
+     *  Assumption: pos and len indicates valid intervals for deletion,
+     *  including not overlapping with encrypted blocks
+     */
     def deleteRange(pos: Int, len: Int) {
         noteDamage(true)
         text.deleteRange(pos, len)
         if (mark > pos){
-          // If the character that mark currently points
-          // to is deleted, then set mark to the starting 
-          // position of the deleting range
-          if (pos+len-1 >= mark) mark = pos
-          // else, simply decrement mark by length of
-          // range because those many characters to the 
-          // LEFT of the mark have been deleted
-          else mark -= len
+            // If the character that mark currently points
+            // to is deleted, then set mark to the starting 
+            // position of the deleting range
+            if (pos+len-1 >= mark) mark = pos
+            // else, simply decrement mark by length of
+            // range because those many characters to the 
+            // LEFT of the mark have been deleted
+            else mark -= len
         }
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, -len)
         setModified()
     }
     
@@ -191,6 +214,8 @@ class EdBuffer {
         // LEFT of the mark, increment the mark by one.
         // Note that the >= condition is necessary
         if (mark >= pos) mark += 1
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, 1)
         setModified()
     }
     
@@ -201,6 +226,8 @@ class EdBuffer {
         // follows the same logic as in the case of 
         // single character insertion
         if (mark >= pos) mark += s.length
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, s.length)
         setModified()
     }
     
@@ -211,6 +238,8 @@ class EdBuffer {
         // follows the same logic as in the case of 
         // single character insertion
         if (mark >= pos) mark += s.length
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, s.length)
         setModified()
     }
     
@@ -221,6 +250,8 @@ class EdBuffer {
         // follows the same logic as in the case of 
         // single character insertion
         if (mark >= pos) mark += t.length
+        // update the positions of the encrypted blocks
+        intervalTree.update_intervals(pos, t.length)
         setModified()
     }
 
@@ -265,8 +296,15 @@ class EdBuffer {
                 MiniBuffer.message(display, "Couldn't write '%s'", name)
         }
     }
-    
+
+    /** Converts the text between first and last inclusively using ROT-13.
+     *  Pre-assumption: Editor has checked that the interval is valid for
+     *  conversion. This method treats each character as an integer and
+     *  adds or deletes 13 depending on whether the char is in the 
+     *  first half of the alphabet or the second half.
+     */
     private def doROT13(first: Int, last: Int) {
+        // saves mark's position
         val m = mark
         val len = last - first + 1
         var sb: StringBuilder = new StringBuilder(len)
@@ -278,28 +316,29 @@ class EdBuffer {
             else if  (ch >= 'N' && ch <= 'Z') sb += (ch.toInt - 13).toChar
             else sb += ch
         }
+        // first insert the transformed text, then delete the original text
         insert(first, sb.mkString)
         deleteRange(first+len, len)
+        // because insert and deleteRange changes mark's position, restore its value
         mark = m
     }
-    
+
+    /** Encrypts the text between first and last inclusively */
     def cipher(first: Int, last: Int) {
         doROT13(first, last)
         intervalTree.insert(first, last)
     }
 
+    /** Decrypts the text between first and last inclusively */
     def decipher(first: Int, last: Int) {
         doROT13(first, last)
         intervalTree.delete(first, last)
     }
-    
-    def intersectAny(key: Int, value: Int, point: Boolean, for_insert_test: Boolean)
+
+    /** A wrapper function that delegates work to intervalTree.intersectAny */
+    def intersectAny(key: Int, value: Int, normal_pos: Boolean, for_insert_test: Boolean)
         : Tuple2[Tuple2[Int, Int], Boolean] = {
-        intervalTree.intersectAny(key, value, point, for_insert_test)
-    }
-    
-    def update_intervals(pos: Int, isInsertion: Boolean){
-        intervalTree.update_intervals(pos, isInsertion)
+        intervalTree.intersectAny(key, value, normal_pos, for_insert_test)
     }
 
     /** Make a Memento that records the current editing state */
@@ -377,7 +416,8 @@ class EdBuffer {
             }
         }
     }
-    
+
+    /** Change that records a ROT-13 transformation */
     class ROT13Conversion(start: Int, end: Int, ciphered: Boolean) extends Change{
         def undo(){ if (ciphered) decipher(start, end) else cipher(start, end) }
         def redo(){ if (ciphered) cipher(start, end) else decipher(start, end) }

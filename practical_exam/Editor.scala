@@ -82,13 +82,9 @@ class Editor extends Undoable[Editor.Action] {
     /** Command: Insert a character */
     def insertCommand(ch: Char): Change = {
         val p = ed.point
-        // check if the insertion position intersects with any
-        // encrypted block. 
+        // check if the insertion position intersects with any encrypted block
         if (ed.intersectAny(p, p, true, true)._2) { beep(); return null }
         ed.insert(p, ch)
-        // update the intervals which represent the positions of 
-        // encrypted immutable blocks
-        ed.update_intervals(p, true)
         ed.point = p+1
         new ed.AmalgInsertion(p, ch)
     }
@@ -103,23 +99,15 @@ class Editor extends Undoable[Editor.Action] {
             case Editor.LEFT =>
                 if (p == 0) { beep(); return null }
                 p -= 1
-                // check if the insertion position intersects with any
-                // encrypted block.
+                // check if the insertion position intersects with any encrypted block
                 if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
-                // update the intervals which represent the positions of 
-                // encrypted immutable blocks
-                ed.update_intervals(p, false)
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
                 ed.point = p
             case Editor.RIGHT =>
                 if (p == ed.length) { beep(); return null }
-                // check if the insertion position intersects with any
-                // encrypted block.
+                // check if the insertion position intersects with any encrypted block
                 if (ed.intersectAny(p, p, true, false)._2) { beep(); return null }
-                // update the intervals which represent the positions of 
-                // encrypted immutable blocks
-                ed.update_intervals(p, false)
                 ch = ed.charAt(p)
                 ed.deleteChar(p)
             case _ =>
@@ -141,8 +129,7 @@ class Editor extends Undoable[Editor.Action] {
         val posAndLen = ed.getWordPosAndLen
         val pos = posAndLen._1
         val range = posAndLen._2
-        // check if the word intersects with any
-        // encrypted block
+        // check if the word intersects with any encrypted block
         if (ed.intersectAny(pos, pos+range-1, true, false)._2) { beep(); return null }
         // get the original word
         val txt = ed.getRange(pos, range)
@@ -199,6 +186,9 @@ class Editor extends Undoable[Editor.Action] {
         // If no cursor in the encrypted block and no intersection, then
         // happy to encrypt the text between the point and the mark.
         else {
+            // if the end position exceeds the position of the last chracter, 
+            // do nothing, because there is no character to encrypt at index end
+            if (end == ed.length) { beep(); return null }
             ed.cipher(start, end)
             new ed.ROT13Conversion(start, end, true)
         }
